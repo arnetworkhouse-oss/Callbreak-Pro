@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+     <link rel="icon" href="https://raw.githubusercontent.com/arnetworkhouse-oss/tic_tac_toe/main/tic-tac-toe.png" type="image/png">
+    <title>Callbreak Pro </title>
+    <style>
+        :root {
+            --gold: #ffd700;
+            --felt: radial-gradient(circle, #1a472a 0%, #071a10 100%);
+            --card-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            --glow-color: rgba(255, 215, 0, 0.8);
+        }
+        
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: var(--felt); 
+            color: white; 
+            margin: 0; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        #branding {
+            position: fixed;
+            top: 5px;
+            right: 10px;
+            font-size: 10px;
+            opacity: 0.6;
+            z-index: 1000;
+        }
+
+        /* Modals */
+        #setup-screen, #bid-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.95);
+            display: flex; align-items: center; justify-content: center; z-index: 2000;
+        }
+
+        .modal-content {
+            background: #1a1a1a; padding: 25px; border-radius: 15px;
+            border: 2px solid var(--gold); text-align: center; width: 80%;
+        }
+
+        #game-screen { flex: 1; display: grid; grid-template-rows: 1fr 140px; position: relative; }
+        
+        #table { 
+            position: relative; 
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 20px 10px; box-sizing: border-box;
+        }
+
+        /* Horizontal Layout for Bots at the Top */
+        .opponents-row {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            z-index: 100;
+        }
+
+        .player {
+            padding: 8px 12px; border-radius: 10px;
+            background: rgba(0,0,0,0.8); border: 1.5px solid #444;
+            min-width: 80px; text-align: center; font-size: 11px;
+            transition: all 0.3s;
+        }
+
+        /* Active Turn State */
+        .active { border-color: var(--gold); transform: scale(1.05); }
+
+        /* WINNER GLOW ANIMATION */
+        .winner-glow {
+            animation: glow-pulse 1.5s infinite;
+            border-color: var(--gold) !important;
+        }
+
+        @keyframes glow-pulse {
+            0% { box-shadow: 0 0 5px var(--glow-color); }
+            50% { box-shadow: 0 0 25px var(--glow-color), inset 0 0 10px var(--glow-color); }
+            100% { box-shadow: 0 0 5px var(--glow-color); }
+        }
+
+        /* Played Card Area */
+        .play-area {
+            position: absolute; inset: 0;
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: none;
+        }
+
+        .slot { position: absolute; width: 60px; height: 85px; border-radius: 6px; }
+        #s-top { top: 25%; }
+        #s-left { left: 20%; top: 45%; }
+        #s-right { right: 20%; top: 45%; }
+        #s-bottom { bottom: 25%; }
+
+        .card {
+            width: 60px; height: 85px; background: white; color: black;
+            border-radius: 6px; display: flex; flex-direction: column;
+            justify-content: space-between; padding: 5px; font-weight: bold;
+            box-shadow: var(--card-shadow); font-size: 16px; border: 1px solid #ccc;
+        }
+        .card.red { color: #d00; }
+
+        /* User Hand Dock */
+        #user-hand {
+            background: rgba(0,0,0,0.5);
+            display: flex; gap: 8px;
+            padding: 15px 20px;
+            overflow-x: auto;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            -webkit-overflow-scrolling: touch;
+        }
+        #user-hand::-webkit-scrollbar { display: none; }
+
+        .hand-card { flex: 0 0 60px; transition: 0.2s; cursor: pointer; }
+
+        button {
+            padding: 12px; background: var(--gold); border: none;
+            border-radius: 6px; font-weight: bold; width: 100%;
+        }
+        .bid-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+    
+
+    <div id="setup-screen">
+        <div class="modal-content">
+            <h1 style="color:var(--gold); margin:0;">CALLBREAK</h1>
+            <p style="font-size: 11px; margin-bottom: 20px;">by AR Network House</p>
+            <button onclick="startGame()">START GAME</button>
+        </div>
+    </div>
+
+    <div id="bid-modal" style="display:none">
+        <div class="modal-content">
+            <h3 style="margin:0">CHOOSE BID</h3>
+            <div id="bid-btns" class="bid-grid"></div>
+        </div>
+    </div>
+
+    <div id="game-screen" style="display:none">
+        <div id="table">
+            <div class="opponents-row">
+                <div id="p-3" class="player">BOT 3<br><span id="stat-3">B:0 T:0</span></div>
+                <div id="p-2" class="player">BOT 2<br><span id="stat-2">B:0 T:0</span></div>
+                <div id="p-1" class="player">BOT 1<br><span id="stat-1">B:0 T:0</span></div>
+            </div>
+
+            <div class="play-area">
+                <div id="s-top" class="slot"></div>
+                <div id="s-left" class="slot"></div>
+                <div id="s-right" class="slot"></div>
+                <div id="s-bottom" class="slot"></div>
+            </div>
+
+            <div style="display:flex; justify-content:center; width:100%;">
+                <div id="p-0" class="player">YOU<br><span id="stat-0">B:0 T:0</span></div>
+            </div>
+        </div>
+
+        <div id="user-hand"></div>
+    </div>
+
+    <script>
+        let players = [], currentTrick = [], firstSuit = null, currentTurn = 0;
+        const suits = ['♠', '♥', '♦', '♣'], vals = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+
+        function startGame() {
+            players = [0,1,2,3].map(i => ({ id: i, hand: [], bid: 0, tricks: 0 }));
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'grid';
+            newRound();
+        }
+
+        function newRound() {
+            let deck = [];
+            suits.forEach(s => vals.forEach((v, i) => deck.push({ s, v, p: i })));
+            deck.sort(() => Math.random() - 0.5);
+            players.forEach((p, i) => {
+                p.hand = deck.slice(i * 13, (i + 1) * 13).sort((a,b) => a.s === b.s ? b.p - a.p : suits.indexOf(a.s) - suits.indexOf(b.s));
+                p.tricks = 0;
+            });
+            renderHand();
+            showBidModal();
+        }
+
+        function showBidModal() {
+            const m = document.getElementById('bid-modal'); m.style.display = 'flex';
+            const b = document.getElementById('bid-btns'); b.innerHTML = '';
+            for(let i=1; i<=8; i++) {
+                let btn = document.createElement('button'); btn.innerText = i;
+                btn.onclick = () => { players[0].bid = i; m.style.display = 'none'; currentTurn = 0; updateUI(); };
+                b.appendChild(btn);
+            }
+        }
+
+        function renderHand() {
+            const h = document.getElementById('user-hand'); h.innerHTML = '';
+            players[0].hand.forEach((card, i) => {
+                const c = document.createElement('div');
+                c.className = `card hand-card ${['♥','♦'].includes(card.s) ? 'red' : ''}`;
+                c.innerHTML = `<span>${card.v}</span><span style="align-self:flex-end">${card.s}</span>`;
+                c.onclick = () => { if(currentTurn === 0) playCard(0, i); };
+                h.appendChild(c);
+            });
+        }
+
+        function playCard(pid, idx) {
+            const card = players[pid].hand.splice(idx, 1)[0];
+            if(!firstSuit) firstSuit = card.s;
+            currentTrick.push({ pid, card });
+
+            const slots = ['s-bottom', 's-right', 's-top', 's-left'];
+            document.getElementById(slots[pid]).innerHTML = `<div class="card ${['♥','♦'].includes(card.s) ? 'red' : ''}">
+                <span>${card.v}</span><span style="align-self:flex-end">${card.s}</span>
+            </div>`;
+
+            currentTurn = (pid + 1) % 4;
+            if(pid === 0) renderHand();
+            if(currentTrick.length === 4) setTimeout(decideWinner, 800);
+            else if(currentTurn !== 0) setTimeout(() => autoPlay(currentTurn), 600);
+            updateUI();
+        }
+
+        function autoPlay(pid) {
+            let idx = players[pid].hand.findIndex(c => c.s === firstSuit);
+            if(idx === -1) idx = 0;
+            playCard(pid, idx);
+        }
+
+        function decideWinner() {
+            let win = currentTrick[0];
+            currentTrick.forEach(t => {
+                const isSpade = t.card.s === '♠';
+                const winIsSpade = win.card.s === '♠';
+                if((isSpade && !winIsSpade) || (t.card.s === win.card.s && t.card.p > win.card.p)) win = t;
+            });
+
+            players[win.pid].tricks++;
+            
+            // Apply Glow to Winner
+            const winnerEl = document.getElementById('p-' + win.pid);
+            winnerEl.classList.add('winner-glow');
+
+            setTimeout(() => {
+                winnerEl.classList.remove('winner-glow');
+                ['s-bottom','s-right','s-top','s-left'].forEach(id => document.getElementById(id).innerHTML = '');
+                currentTrick = []; firstSuit = null; currentTurn = win.pid;
+                if(players[0].hand.length === 0) setTimeout(newRound, 1000);
+                else if(currentTurn !== 0) autoPlay(currentTurn);
+                updateUI();
+            }, 1500);
+        }
+
+        function updateUI() {
+            players.forEach((p, i) => {
+                document.getElementById('stat-'+i).innerText = `B:${p.bid} T:${p.tricks}`;
+                document.getElementById('p-'+i).className = 'player' + (i === currentTurn ? ' active' : '');
+            });
+        }
+    </script>
+</body>
+</html>
